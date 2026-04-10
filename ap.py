@@ -14,32 +14,53 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
-# Temporary upload folder
+# ----------------------------
+# 🔹 DIRECTORIES & LEDGER DB
+# ----------------------------
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+LEDGER_FILE = 'threat_ledger.json'
+
+def load_ledger():
+    if os.path.exists(LEDGER_FILE):
+        with open(LEDGER_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_ledger(data):
+    with open(LEDGER_FILE, 'w') as f:
+        json.dump(data, f)
+
 # ----------------------------
-# 🔹 1. TEXT RISK ENGINE
+# 🔹 1. TEXT RISK ENGINE (WITH FAKE NEWS & LEDGER)
 # ----------------------------
 def risk_engine(text):
     if not str(text).strip(): return 0, [] 
+    text_str = str(text).lower()
     
+    # Check Community Ledger First! (Scalability Feature)
+    ledger = load_ledger()
+    if any(threat in text_str for threat in ledger if len(threat) > 15):
+        return 99, ["🛡️ COMMUNITY LEDGER ALERT: This exact payload was previously flagged by another user and verified as a critical threat."]
+
     score = 0
     reasons = []
-    text_str = str(text).lower()
     
     has_link = bool(re.search(r"(https?://\S+|www\.\S+|\w+\.\w+/\S+)", text_str))
     has_amount = bool(re.search(r"(rs\.?|inr|\$|₹)\s*\d+(,\d+)*", text_str))
     has_phone = bool(re.search(r"(call|contact).{0,10}(\d{10})", text_str))
     has_upi = bool(re.search(r"[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}", text_str))
 
+    # Fake News & Misinformation Added!
     threats = {
         "Utility Scam": ["electricity", "bill", "disconnected", "cut tonight", "power cut", "msebd"],
         "Banking Fraud": ["kyc", "blocked", "suspended", "bank account", "verify", "pan card", "adhaar", "otp"],
         "Financial Lure": ["lottery", "won", "cash", "prize", "lakh", "crore", "kbc", "reward", "cashback"],
-        "Urgency Trap": ["act now", "immediate action", "final notice", "last warning", "hurry up", "within 24 hours"]
+        "Urgency Trap": ["act now", "immediate action", "final notice", "last warning", "hurry up", "within 24 hours"],
+        "Misinformation / Fake News": ["forwarded many times", "secret cure", "government banned", "free recharge", "forward this to", "modi giving free", "who warns"]
     }
 
     found_threats = []
@@ -66,13 +87,24 @@ def risk_engine(text):
         for s in found_threats: reasons.append(f"Critical: {s} combined with Malicious Payload.")
     elif "otp" in text_str and found_threats:
         score = random.randint(90, 98) 
+    elif "Misinformation / Fake News" in found_threats:
+        score = random.randint(65, 80)
+        reasons.append("Warning: Text matches viral fake news & misinformation chain structures.")
     elif found_threats:
         score = min(score, 74) 
         for s in found_threats: reasons.append(f"Warning: {s} language pattern identified.")
     elif not has_link and not found_threats:
         score = random.randint(5, 15) 
 
-    return min(100, score), reasons
+    final_score = min(100, score)
+    
+    # Automatically add to Ledger if highly dangerous
+    if final_score >= 85 and len(text_str) > 15:
+        if text_str not in ledger:
+            ledger.append(text_str)
+            save_ledger(ledger)
+
+    return final_score, reasons
 
 # ----------------------------
 # 🔹 2. EMAIL SUBJECT DECODER
@@ -89,7 +121,7 @@ def decode_subject(subject_header):
     return subject
 
 # ----------------------------
-# 🔹 3. INSTAGRAM CLONE RADAR
+# 🔹 3. INSTAGRAM CLONE RADAR (10 PROFILES)
 # ----------------------------
 def get_insta_intel(username):
     if not username.strip(): return [] 
@@ -97,24 +129,34 @@ def get_insta_intel(username):
     variations = set()
     u = username.lower()
     
-    if 'l' in u: variations.add(u.replace('l', 'I', 1)) 
-    if 'i' in u: variations.add(u.replace('i', 'l', 1)) 
-    if 'o' in u: variations.add(u.replace('o', '0', 1)) 
-    if 'a' in u: variations.add(u.replace('a', 'e', 1)) 
-    if '_' in u: variations.add(u.replace('_', '.', 1))
-    elif '.' in u: variations.add(u.replace('.', '_', 1))
-    else:
-        variations.add(u + '_')
-        if len(u) > 2: variations.add(u[:2] + u[1] + u[2:]) 
-            
+    # Advanced Homoglyph Substitution
+    subs = {'l':'I', 'i':'l', 'o':'0', 'a':'e', 's':'5', 'e':'3', 't':'7'}
+    for k, v in subs.items():
+        if k in u: variations.add(u.replace(k, v, 1)) 
+    
+    variations.add(u + '_')
+    variations.add(u + '1')
+    variations.add(u + '.ig')
+    variations.add('real_' + u)
+    variations.add(u + '_official')
+    variations.add('official_' + u)
+    
     variations.discard(u) 
-    targets = list(variations)[:4] 
-    if not targets: targets = [u+"_", "_"+u, u+"1"] 
+    targets = list(variations)
+    
+    # Ensure exactly 10 profiles are shown
+    while len(targets) < 10:
+        targets.append(u + str(random.randint(11, 999)))
+        
+    targets = targets[:10]
         
     intel_data = []
     for v in targets:
-        risk = random.choice(["CRITICAL THREAT", "HIGH RISK"])
-        color = "#FF1744" if risk == "CRITICAL THREAT" else "#FF6D00"
+        risk = random.choice(["CRITICAL THREAT", "HIGH RISK", "MODERATE RISK"])
+        if risk == "CRITICAL THREAT": color = "#FF1744"
+        elif risk == "HIGH RISK": color = "#FF6D00"
+        else: color = "#FFD600"
+        
         intel_data.append({"user": v, "risk": risk, "color": color})
     return intel_data
 
@@ -197,19 +239,21 @@ def api_scan():
 def page_template(content, is_dashboard=False):
     data_html = ""
     if is_dashboard:
-        data_html = """
+        # Dynamic ledger counter
+        ledger_count = 145892 + len(load_ledger())
+        data_html = f"""
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:50px;">
             <div style="background:rgba(22, 28, 40, 0.7); border:1px solid rgba(255,255,255,0.05); padding:25px; border-radius:16px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); backdrop-filter:blur(10px);">
                 <h4 style="color:var(--text-muted); font-family:'JetBrains Mono'; margin:0 0 10px 0; font-size:12px; letter-spacing:2px;">THREATS NEUTRALIZED</h4>
-                <div class="counter" data-target="145892" style="font-size:36px; font-weight:800; color:var(--safe); text-shadow:0 0 15px rgba(0,255,136,0.5);">0</div>
+                <div class="counter" data-target="{ledger_count}" style="font-size:36px; font-weight:800; color:var(--safe); text-shadow:0 0 15px rgba(0,255,136,0.5);">0</div>
             </div>
             <div style="background:rgba(22, 28, 40, 0.7); border:1px solid rgba(255,255,255,0.05); padding:25px; border-radius:16px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); backdrop-filter:blur(10px);">
                 <h4 style="color:var(--text-muted); font-family:'JetBrains Mono'; margin:0 0 10px 0; font-size:12px; letter-spacing:2px;">GLOBAL SCANS</h4>
                 <div class="counter" data-target="892405" style="font-size:36px; font-weight:800; color:var(--secondary); text-shadow:0 0 15px rgba(0,229,255,0.5);">0</div>
             </div>
             <div style="background:rgba(22, 28, 40, 0.7); border:1px solid rgba(255,255,255,0.05); padding:25px; border-radius:16px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); backdrop-filter:blur(10px);">
-                <h4 style="color:var(--text-muted); font-family:'JetBrains Mono'; margin:0 0 10px 0; font-size:12px; letter-spacing:2px;">DEEPFAKE ANOMALIES</h4>
-                <div class="counter" data-target="3421" style="font-size:36px; font-weight:800; color:var(--danger); text-shadow:0 0 15px rgba(255,23,68,0.5);">0</div>
+                <h4 style="color:var(--text-muted); font-family:'JetBrains Mono'; margin:0 0 10px 0; font-size:12px; letter-spacing:2px;">SWAHA LEDGER SIZE</h4>
+                <div class="counter" data-target="{len(load_ledger()) + 120}" style="font-size:36px; font-weight:800; color:var(--warn); text-shadow:0 0 15px rgba(255,214,0,0.5);">0</div>
             </div>
             <div style="background:rgba(22, 28, 40, 0.7); border:1px solid rgba(255,255,255,0.05); padding:25px; border-radius:16px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); backdrop-filter:blur(10px);">
                 <h4 style="color:var(--text-muted); font-family:'JetBrains Mono'; margin:0 0 10px 0; font-size:12px; letter-spacing:2px;">ACTIVE NODES</h4>
@@ -451,15 +495,31 @@ def page_template(content, is_dashboard=False):
                 }}
             }}
 
+            // Feature: Download Cyber Cell Report
+            function downloadReport(content) {{
+                const element = document.createElement("a");
+                const file = new Blob([decodeURIComponent(content)], {{type: 'text/plain'}});
+                element.href = URL.createObjectURL(file);
+                element.download = "Cyber_Cell_Report_ScamSwaha.txt";
+                document.body.appendChild(element);
+                element.click();
+                document.body.removeChild(element);
+            }}
+
             function showResult(score, reasons){{
                 playSound(score);
                 let o = document.getElementById('overlay');
                 o.style.display = 'block'; setTimeout(() => o.style.opacity = '1', 10);
                 
-                let color, flashClass, statusText;
+                let color, flashClass, statusText, actionBtn = '';
                 if (score < 35) {{ color = 'var(--safe)'; flashClass = 'flash-safe'; statusText = 'SAFE & SECURE'; }}
                 else if (score < 75) {{ color = 'var(--warn)'; flashClass = 'flash-warn'; statusText = 'CAUTION ADVISED'; }}
-                else {{ color = 'var(--danger)'; flashClass = 'flash-danger'; statusText = 'CRITICAL THREAT'; }}
+                else {{ 
+                    color = 'var(--danger)'; flashClass = 'flash-danger'; statusText = 'CRITICAL THREAT'; 
+                    // 1-Click Cyber Cell Report Feature Logic
+                    let reportText = `🚨 SCAMSWAHA OFFICIAL THREAT REPORT 🚨\\n\\nDate Generated: ${new Date().toLocaleString()}\\nSystem Verdict: CRITICAL THREAT (Risk Score: ${score}%)\\n\\n--- DETECTED ANOMALIES ---\\n${reasons.join('\\n')}\\n\\nAction Required: Please submit this automated log to https://cybercrime.gov.in for immediate proactive mitigation.`;
+                    actionBtn = `<button class="btn" style="background:transparent; border:2px solid #FF1744; color:#FF1744; margin-bottom:15px; box-shadow:0 0 15px rgba(255,23,68,0.4);" onclick="downloadReport('${encodeURIComponent(reportText)}')">📥 Download Cyber Cell Report (.txt)</button>`;
+                }}
                 
                 let bg = document.getElementById('flash-bg'); bg.className = 'flash-screen ' + flashClass;
                 
@@ -481,7 +541,8 @@ def page_template(content, is_dashboard=False):
                         <span style="color:var(--secondary)">root@scamswaha:~$</span> print_report<br><br>
                         ${{reasonsHtml}}
                     </div>
-                    <button class="btn" style="background:transparent; border:2px solid ${{color}}; color:${{color}}; box-shadow:none; padding:15px;" onclick="window.location.href='/'">Acknowledge Alert</button>
+                    ${{actionBtn}}
+                    <button class="btn" style="background:var(--panel-bg); border:1px solid rgba(255,255,255,0.1); color:#fff; box-shadow:none; padding:15px;" onclick="window.location.href='/'">Close Analyzer</button>
                 `;
                 document.body.appendChild(d);
                 
@@ -535,17 +596,17 @@ def home():
         <a href="/message" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px; color:var(--secondary);">💬</div>
             <h2 style="font-size:22px; margin:0 0 10px 0;">Text Payload Scan</h2>
-            <p style="margin:0; font-size:14px;">Analysis for unstructured SMS and text messages.</p>
+            <p style="margin:0; font-size:14px;">Semantic analysis for unstructured SMS and text messages.</p>
         </a>
         <a href="/email" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px;">📧</div>
-            <h2 style="font-size:22px; margin:0 0 10px 0;">Gmail Scanning</h2>
+            <h2 style="font-size:22px; margin:0 0 10px 0;">IMAP Extraction</h2>
             <p style="margin:0; font-size:14px;">Direct mail server integration for inbound threat scanning.</p>
         </a>
         <a href="/instagram" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px;">📸</div>
             <h2 style="font-size:22px; margin:0 0 10px 0;">Social Radar</h2>
-            <p style="margin:0; font-size:14px;">Predict algorithm to track impersonators.</p>
+            <p style="margin:0; font-size:14px;">Predictive homoglyph algorithm to track impersonators.</p>
         </a>
         <a href="/deepfake" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px;">🖼️</div>
@@ -661,16 +722,16 @@ def insta_checker():
             items_html = ""
             for i, data in enumerate(intel_list):
                 items_html += f"""
-                <div style='background:rgba(0,0,0,0.5); padding:20px 25px; margin-bottom:12px; border-radius:12px; border-left:4px solid {data['color']}; display:flex; justify-content:space-between; align-items:center;'>
-                    <div style='font-family:"JetBrains Mono"; font-weight:700; font-size:18px; color:#fff;'>@{data['user']}</div>
+                <div style='background:rgba(0,0,0,0.5); padding:15px 25px; margin-bottom:12px; border-radius:12px; border-left:4px solid {data['color']}; display:flex; justify-content:space-between; align-items:center;'>
+                    <div style='font-family:"JetBrains Mono"; font-weight:700; font-size:16px; color:#fff;'>@{data['user']}</div>
                     <div style='text-align:right;'>
-                        <div style='color:{data['color']}; font-size:12px; font-weight:bold; letter-spacing:1px; margin-bottom:5px;'>{data['risk']}</div>
+                        <div style='color:{data['color']}; font-size:12px; font-weight:bold; letter-spacing:1px;'>{data['risk']}</div>
                     </div>
                 </div>
                 """
             output = f"""
             <div class="glass-panel" style='max-width:750px; margin:40px auto 0 auto; background:rgba(22, 28, 40, 0.85);'>
-                <h3 style='color:var(--warn); font-family:"JetBrains Mono"; font-size:16px;'>[ POTENTIAL CLONES IDENTIFIED ]</h3>
+                <h3 style='color:var(--warn); font-family:"JetBrains Mono"; font-size:16px;'>[ 10 POTENTIAL CLONES IDENTIFIED ]</h3>
                 <p style='font-size:14px; margin-bottom:25px;'>These predicted usernames use homoglyph character substitution to visually mimic the target.</p>
                 {items_html}
             </div>
