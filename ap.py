@@ -535,17 +535,17 @@ def home():
         <a href="/message" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px; color:var(--secondary);">💬</div>
             <h2 style="font-size:22px; margin:0 0 10px 0;">Text Payload Scan</h2>
-            <p style="margin:0; font-size:14px;">Semantic analysis for unstructured SMS and text messages.</p>
+            <p style="margin:0; font-size:14px;">Analysis for unstructured SMS and text messages.</p>
         </a>
         <a href="/email" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px;">📧</div>
-            <h2 style="font-size:22px; margin:0 0 10px 0;">IMAP Extraction</h2>
+            <h2 style="font-size:22px; margin:0 0 10px 0;">Gmail Scanning</h2>
             <p style="margin:0; font-size:14px;">Direct mail server integration for inbound threat scanning.</p>
         </a>
         <a href="/instagram" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px;">📸</div>
             <h2 style="font-size:22px; margin:0 0 10px 0;">Social Radar</h2>
-            <p style="margin:0; font-size:14px;">Predictive homoglyph algorithm to track impersonators.</p>
+            <p style="margin:0; font-size:14px;">Predict algorithm to track impersonators.</p>
         </a>
         <a href="/deepfake" class="glass-panel card-hover" style="text-decoration:none;">
             <div style="font-size:35px; margin-bottom:15px;">🖼️</div>
