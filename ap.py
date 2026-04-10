@@ -396,7 +396,6 @@ def page_template(content, is_dashboard=False):
         <div id="overlay"></div>
 
         <script>
-            // --- LIVE COUNTER SCRIPT FOR DASHBOARD ---
             const counters = document.querySelectorAll('.counter');
             const speed = 200; 
             counters.forEach(counter => {{
@@ -516,9 +515,8 @@ def page_template(content, is_dashboard=False):
                 else if (score < 75) {{ color = 'var(--warn)'; flashClass = 'flash-warn'; statusText = 'CAUTION ADVISED'; }}
                 else {{ 
                     color = 'var(--danger)'; flashClass = 'flash-danger'; statusText = 'CRITICAL THREAT'; 
-                    // 1-Click Cyber Cell Report Feature Logic
-                    let reportText = `🚨 SCAMSWAHA OFFICIAL THREAT REPORT 🚨\\n\\nDate Generated: ${new Date().toLocaleString()}\\nSystem Verdict: CRITICAL THREAT (Risk Score: ${score}%)\\n\\n--- DETECTED ANOMALIES ---\\n${reasons.join('\\n')}\\n\\nAction Required: Please submit this automated log to https://cybercrime.gov.in for immediate proactive mitigation.`;
-                    actionBtn = `<button class="btn" style="background:transparent; border:2px solid #FF1744; color:#FF1744; margin-bottom:15px; box-shadow:0 0 15px rgba(255,23,68,0.4);" onclick="downloadReport('${encodeURIComponent(reportText)}')">📥 Download Cyber Cell Report (.txt)</button>`;
+                    let reportText = `🚨 SCAMSWAHA OFFICIAL THREAT REPORT 🚨\\n\\nDate Generated: ${{new Date().toLocaleString()}}\\nSystem Verdict: CRITICAL THREAT (Risk Score: ${{score}}%)\\n\\n--- DETECTED ANOMALIES ---\\n${{reasons.join('\\n')}}\\n\\nAction Required: Please submit this automated log to https://cybercrime.gov.in for immediate proactive mitigation.`;
+                    actionBtn = `<button class="btn" style="background:transparent; border:2px solid #FF1744; color:#FF1744; margin-bottom:15px; box-shadow:0 0 15px rgba(255,23,68,0.4);" onclick="downloadReport('${{encodeURIComponent(reportText)}}')">📥 Download Cyber Cell Report (.txt)</button>`;
                 }}
                 
                 let bg = document.getElementById('flash-bg'); bg.className = 'flash-screen ' + flashClass;
