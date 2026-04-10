@@ -3,7 +3,7 @@ console.log("ScamSwaha Extension Active on WhatsApp Web! 🔥");
 // Yahan apna Render wala Link daalna hai deploy hone ke baad
 // For example: "https://scamswaha-ai.onrender.com/api/scan"
 // Abhi ke liye localhost rakha hai testing ke liye
-const SERVER_URL = "http://127.0.0.1:5000/api/scan";
+const SERVER_URL = "https://scamswaha.onrender.com/api/scan";
 
 const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
